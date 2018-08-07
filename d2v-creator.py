@@ -7,8 +7,8 @@ import numpy as np
 import gensim
 
 from nltk.parse.stanford import StanfordDependencyParser as sparse
-pathmodelsjar = '/Users/ZaqRosen/nltk_data/stanford-english-corenlp-2016-01-10-models.jar'
-pathjar = '/Users/ZaqRosen/nltk_data/stanford-parser/stanford-parser.jar'
+pathmodelsjar = './nltk_data/stanford-english-corenlp-2016-01-10-models.jar'
+pathjar = './nltk_data/stanford-parser/stanford-parser.jar'
 depparse = sparse(path_to_jar=pathjar, path_to_models_jar=pathmodelsjar)
 
 #################################
