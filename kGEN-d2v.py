@@ -218,7 +218,23 @@ class net:
                 model.compile(optimizer='rmsprop', loss= 'categorical_crossentropy', metrics=['accuracy'])
 
                 return model
+        
+        def lstm_model_functional(word2iddict, embeddings=[], drop=tr_dropout, hidden_layers=hdn_layers, embed_dims=dimensions):
+                x1 = Input(shape=( None, ))
 
+                net = Embedding(len(word2iddict), embed_dims, weights=[embeddings])(x1)
+                net = LSTM(300, return_sequences=True, activation='softmax', name='lstm')(net)
+                net = Dropout(drop)(net)
+                for layer in hidden_layers:
+                        net = Dense(layer, activation='relu')(net)
+                        net = Dropout(drop)(net)
+
+                predictions = Dense(N_CLASSES, activation='softmax')(net)
+
+                model = Model(inputs=x1, outputs=predictions)
+                model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
+
+                return model
 
         def input_fn(dfk, word2iddict):
                 x=[]
