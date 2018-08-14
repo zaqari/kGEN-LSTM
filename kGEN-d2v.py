@@ -4,13 +4,13 @@ import gensim
 from nltk.stem import WordNetLemmatizer
 
 import keras
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM
 from keras.layers.core import Dense, Dropout, Flatten
 #from keras.layers.wrappers import TimeDistributed
 from keras.layers import Bidirectional
-from keras.layers import Activation
+from keras.layers import Activation, Input
 
 ########################################
 ########LEMMATIZATION SET-UP
