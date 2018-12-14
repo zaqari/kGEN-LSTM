@@ -79,80 +79,10 @@ lem=WordNetLemmatizer()
 ####################################################################################
 ######## Word vecs
 ####################################################################################
-d2v_model_path='./1-data/_vec-models/d2v-wiki200-wsj.bin'
 a2v_model_path='./1-data/_vec-models/mohler-d2v-MOB.bin'
 
 d2vs=gensim.models.Word2Vec.load(a2v_model_path)
-#a2vs=gensim.models.Word2Vec.load(a2v_model_path)
-
-
-####################################################################################
-####### De facto analyses
-####################################################################################
-class analyses:
-
-        def bestN(results, top_n=3, fx='max'):
-                data=[]
-
-                for row in range(len(results)):
-                        if fx=='max':
-                                data.append(list(np.argpartition(results[row], -3)[0][-1:-int(top_n+1):-1]))
-                        if fx=='min':
-                                data.append(list(np.argpartition(results[row], -3)[0][:int(top_n)]))
-
-                return data
-
-
-        def index_of_correct(true, topN_results, verbose=False):
-                at_index=[]
-                tru_label=[]
-                check=list(zip(true, topN_results))
-
-                for comp in check:
-                        if comp[0] in comp[1]:
-                                at_index.append(comp[1].index(comp[0]))
-                                tru_label.append(comp[0])
-
-                print('% @correct: {}'.format(len(at_index)/len(true)*100))
-                if verbose==True:
-                        print('@Index distribution for correct items')
-                        for it in set(at_index):
-                                print('% @index {} : {}'.format(it, at_index.count(it)/len(at_index)*100))
-
-                return pd.DataFrame(np.array(list(zip(tru_label, at_index))).reshape(-1, 2), columns=['label', '@index'])
                                 
-                                
-#######HOW TO#######
-
-        
-####################################################################################
-####### Capture Head-Functor via dependencies
-####################################################################################
-class head:
-
-        def stanford(phrase):
-                head=''
-                err_dic={"OSError": 0, "AssertionError":0,"UnicodeError":0}
-                
-                try:
-                        res = depparse.raw_parse(phrase)
-                        dep = res.__next__()
-                        ventral_stream = list(dep.triples())
-
-                        head_list=[]
-                        for tuple in ventral_stream:
-                                head_list.append(tuple[0])
-
-                        head=lem.lemmatize(head_list[0][0])
-                                
-                except OSError:
-                        err_dic['OSError']+=1
-                except AssertionError:
-                        err_dic['AssertionError']+=1
-                except UnicodeError:
-                        err_dic['UnicodeError']+=1
-
-                return head
 
 
 ####################################################################################
@@ -205,13 +135,7 @@ class embeds:
                 # which are then used in the LSTM batches.
                 print(len(set(errors)), ' vocabulary items not translated into vecs.')
                 return word2id, np.array(vec_vocab) , errors
-"""
-lexical_cols=[]
-if data_idx in [0,2]:
-        lexical_cols=['tref', 'nsubj', 'dobj', 'verb', 'iobj', 'obl1', 'obl2']
-else:
-        lexical_cols=['lex']
-"""
+
 w2id, vectors, mal = embeds.get_embeds(df_all, ['lex']) #['lex']# #['tref', 'nsubj', 'dobj', 'verb', 'iobj', 'obl1', 'obl2']
 vocab_length=len(vectors)
 
@@ -263,19 +187,6 @@ class inputs:
                 return np.array(data).reshape(-1,1)#.reshape(-1, 300)
 
 
-        def flatHash(dfk, columns=['verb', 'obl1', 'iobj', 'nsubj', 'dobj', 'obl2'], dic=w2id):
-                x=[]
-
-                for loc in range(len(dfk)):
-                        data=[]
-                        s=dfk[columns].loc[loc].values.tolist()
-                        for word in s:
-                                data.append(dic[lem.lemmatize(str(word))])
-                        x.append(data)
-
-                return np.array(x).reshape(-1, 1,
-                                           len(columns))
-
 #######################
 ### Outputs/Lables
 #######################
@@ -317,17 +228,7 @@ class output:
                         y.append(sent)
 
                 return y
-
-        def flatLabels(col, dfk):
-                y=[]
-                oneHot=[0.0 for i in range(N_CLASSES)]
-                for loc in range(len(dfk)):
-                        s=dfk[col].loc[loc]
-                        a=list(oneHot)
-                        a[s]=1.0
-                        y.append(a)
-                return np.array(y).reshape(-1, 1,
-                                           N_CLASSES)               
+             
 
         def binaryLabels(col, dfk, mode=None, sent_id_col='sent', word2iddict=w2id):
                 y=[]
@@ -359,61 +260,7 @@ class output:
 ####################################################################################
 class net:
 
-        def dnn(embeddings=[], word2iddict=w2id, drop=tr_dropout, hidden_layers=hdn_layers, embed_dims=dimensions):
-                #Inputs = w2id number -> embedding layer as nn inputs
-                seq_input = Input(batch_shape=BATCH_SHAPE)
-                seq = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                name='seq')(seq_input)
-
-                verb_input = Input(batch_shape=BATCH_SHAPE)
-                verb = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='verb')(verb_input)
-
-                syn_input = Input(batch_shape=BATCH_SHAPE)
-                syn = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                name='syn')(syn_input)
-
-                subj_input = Input(batch_shape=BATCH_SHAPE)
-                subj = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='subj')(subj_input)
-
-                dobj_input = Input(batch_shape=BATCH_SHAPE)
-                dobj = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='dobj')(dobj_input)
-
-                obl1_input = Input(batch_shape=BATCH_SHAPE)
-                obl1 = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='obl1')(obl1_input)
-
-                obl2_input = Input(batch_shape=BATCH_SHAPE)
-                obl2 = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='obl2')(obl2_input)
-
-                iobj_input = Input(batch_shape=BATCH_SHAPE)
-                iobj = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='iobj')(iobj_input)
-
-                seqxverbxsubj = add([seq, verb, subj])
-                seqxverbxdobj = add([seq, verb, dobj])
-                seqxverbxiobj = add([seq, verb, iobj])
-                seqxobl1xobl2 = add([seq, obl1, obl2])
-
-                kGEN = Concatenate()([seq, verb, syn, subj, dobj, iobj, obl1, obl2,
-                                            seqxverbxsubj, seqxverbxdobj, seqxverbxiobj, seqxobl1xobl2])
-                
-                for layer in hidden_layers:
-                        kGEN = Dense(layer, activation='relu')(kGEN)
-                        kGEN = Dropout(drop)(kGEN)
-                
-                #Output & model compiling
-                out = Dense(N_CLASSES, activation='softmax', name='out')(kGEN)
-                
-                model = Model(inputs=[seq_input, verb_input, syn_input, subj_input, dobj_input, obl1_input, obl2_input, iobj_input], outputs=[out])
-                model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
-                print(model.metrics_names)
-                return model
-
-        def simple(embeddings=[], word2iddict=w2id, drop=tr_dropout, hidden_layers=hdn_layers, embed_dims=dimensions):
+        def stackedLSTM(embeddings=[], word2iddict=w2id, drop=tr_dropout, hidden_layers=hdn_layers, embed_dims=dimensions):
                 seq_input = Input(batch_shape=BATCH_SHAPE)
                 seq = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, weights=[embeddings],
                                 name='seq')(seq_input)
@@ -427,98 +274,6 @@ class net:
                 
                 model = Model(inputs=seq_input, outputs=seq_out)
                 model.compile(optimizer='rmsprop', loss=crf.loss_function, metrics=[crf.accuracy])
-                print(model.metrics_names)
-                return model
-
-
-        def flatLSTM(embeddings=[], word2iddict=w2id, drop=tr_dropout, hidden_layers=hdn_layers, embed_dims=dimensions):
-                sample = Input(shape=BATCH_SHAPE)
-                seq = Reshape(target_shape=(BATCH_SHAPE[1], ))(sample)
-                seq = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, weights=[embeddings], name='seq')(seq)
-                kGEN = Bidirectional(LSTM(600, activation='relu', return_sequences=True, dropout=drop, name='arg-str'), merge_mode='sum')(seq)
-
-                #kGEN = Flatten()(seq)
-                #kGEN = Reshape(target_shape=(BATCH_SHAPE[1], 600))(kGEN)
-                #kGEN = MaxPooling1D(strides=6)(kGEN)
-                
-                for layer in hidden_layers:
-                        kGEN = Dense(layer, activation='relu')(kGEN)
-                        kGEN = Dropout(drop)(kGEN)
-                
-                out = TimeDistributed(Dense(N_CLASSES, activation='softmax', name='out'))(kGEN)
-                
-                model = Model(inputs=sample, outputs=out)
-                model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
-                print(model.metrics_names)
-                return model
-
-        def lstm2belief(embeddings=[], word2iddict=w2id, drop=tr_dropout, hidden_layers=hdn_layers, embed_dims=dimensions):
-                #Inputs = w2id number -> embedding layer as nn inputs
-                seq_input = Input(batch_shape=BATCH_SHAPE)
-                seq = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                name='seq')(seq_input)
-
-                verb_input = Input(batch_shape=BATCH_SHAPE)
-                verb = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='verb')(verb_input)
-
-                syn_input = Input(batch_shape=BATCH_SHAPE)
-                syn = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                name='syn')(syn_input)
-
-                subj_input = Input(batch_shape=BATCH_SHAPE)
-                subj = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='subj')(subj_input)
-
-                dobj_input = Input(batch_shape=BATCH_SHAPE)
-                dobj = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='dobj')(dobj_input)
-
-                obl1_input = Input(batch_shape=BATCH_SHAPE)
-                obl1 = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='obl1')(obl1_input)
-
-                obl2_input = Input(batch_shape=BATCH_SHAPE)
-                obl2 = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='obl2')(obl2_input)
-
-                iobj_input = Input(batch_shape=BATCH_SHAPE)
-                iobj = Embedding(input_dim=len(word2iddict), output_dim=embed_dims, #weights=[embeddings],
-                                 name='iobj')(iobj_input)
-                """
-                seqxverbxsubj = add([seq, verb, subj])
-                seqxverbxdobj = add([seq, verb, dobj])
-                seqxverbxiobj = add([seq, verb, iobj])
-                seqxobl1xobl2 = add([seq, obl1, obl2])
-                """
-                
-                #LSTM formatting & model
-                kGEN = Concatenate(axis=1)([seq, verb, syn, obl1, obl2, subj, dobj, iobj,
-                                            #seqxverbxsubj, seqxverbxdobj, seqxverbxiobj, seqxobl1xobl2
-                                            ])
-                #kGEN = MaxPooling1D(strides=2)(kGEN)
-                kGEN = Bidirectional(LSTM(300, activation='relu', return_sequences=True, dropout=drop, name='arg-str'), merge_mode='sum')(kGEN)
-                kGEN = Bidirectional(LSTM(N_CLASSES, activation='softmax', return_sequences=True), merge_mode='sum')(kGEN)
-                """
-                #Deep Belief LSTM Component
-                for layer in hidden_layers:
-                        kGEN = LSTM(layer, activation='relu', return_sequences=True, dropout=drop)(kGEN)
-                        kGEN = LSTM(N_CLASSES, activation='softmax', return_sequences=True)(kGEN)
-                """
-                kGEN = Flatten()(kGEN)
-                #kGEN = MaxPooling1D(pool_size=8)(kGEN)
-
-                #Deep Belief network with softmax gates.
-                for layer in hidden_layers:
-                        kGEN = Dense(layer, activation='relu')(kGEN)
-                        kGEN = Dropout(drop)(kGEN)
-                        kGEN = Dense(N_CLASSES, activation='softmax')(kGEN)
-
-                #Output & model compiling
-                out = Dense(N_CLASSES, activation='softmax', name='out')(kGEN)
-                
-                model = Model(inputs=[seq_input, verb_input, syn_input, subj_input, dobj_input, obl1_input, obl2_input, iobj_input], outputs=[out])
-                model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
                 print(model.metrics_names)
                 return model
 
@@ -579,23 +334,6 @@ class batch:
                         loss_all.append(loss)
 
                 return acc_all, loss_all
-                        
-
-        def pred_on_batch(f, NN, items=[]):
-                acc=[]
-                loss=[]
-
-                evals=[]
-                if items!=[]:
-                        evals=items
-                else:
-                        evals=range(len(y))
-
-                for i in evals:
-                        ac = NN.predict([f[0][i], f[1][i], f[2][i], f[3][i], f[4][i], f[5][i], f[6][i]], verbose=0)
-                        acc.append(ac)
-
-                return acc
 
        
 ####################################################################################
@@ -607,90 +345,8 @@ print('{} test steps per validation.'.format(len(df_test)))
 #print('len(train)%6:   {}     . . . tests if MOB or not retroactively.'.format(len(df_train)%BATCH_SIZE))
 cont=input('continue? ')
 
-inputables=['lex']#['tref', 'verb', 'syn', 'nsubj', 'dobj', 'obl1', 'obl2', 'iobj']
-outputables=['Labels']
-
-#seq, y = [inputs.hashColumn(col, df_train) for col in inputables], [output.labels(col, df_train) for col in outputables]
-#seq_, y_ = [inputs.hashColumn(col, df_test) for col in inputables], [output.labels(col, df_test) for col in outputables]
-
 #LSTM=lstm.simple(vectors)
-nn=net.simple(vectors)
+nn=net.stackedLSTM(vectors)
 acc, loss =batch.batched_training(df_train, ['lex'], ['n75-MOB'], nn, test_data=df_test)
-####NOTES####
-#nn.fit(seq, y, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=2, validation_data=(seq_, y_))
-#batch.batched_training(df_train, ['lex'], ['Labels'], LSTM, test_data=df_test)
 
-"""
-
-#########################################
-######## Training
-########################################
-seq=inputs.hashColumn('lex', df_train)
-syn=inputs.hashColumn('syn', df_train)
-foc=inputs.hashColumn('tref', df_train)
-verb=inputs.hashColumn('verb', df_train)
-subj=inputs.hashColumn('nsubj', df_train)
-dobj=inputs.hashColumn('dobj', df_train)
-obl1=inputs.hashColumn('obl1', df_train)
-obl2=inputs.hashColumn('obl2', df_train)
-
-y=output.labels('Labels', df_train)
-#y_alt=output.states('end-labels', df_train)
-x=[seq, verb, syn, foc,
-   #seq, foc, verb, subj, dobj, obl1, obl2
-   ]
-
-########################################
-######## Testing
-########################################
-seq_=inputs.hashColumn('lex', df_test)
-syn_=inputs.hashColumn('syn', df_test)
-foc_=inputs.hashColumn('tref', df_test)
-verb_=inputs.hashColumn('verb', df_test)
-subj_=inputs.hashColumn('nsubj', df_test)
-dobj_=inputs.hashColumn('dobj', df_test)
-obl1_=inputs.hashColumn('obl1', df_test)
-obl2_=inputs.hashColumn('obl2', df_test)
-
-y_=output.labels('Labels', df_test)
-#y_alt_=output.states('end-labels', df_test)
-x_=[seq_, verb_, syn_, foc_,
-    #seq_ foc_, verb_, subj_, dobj_, obl1_, obl2_
-    ]
-LSTM.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SHAPE[0], verbose=2, validation_data=(x_, y_))
-
-####################################################################################
-####### BATCHED TRAINING
-####################################################################################
-
-########################################
-######## Training
-########################################
-seq=inputs.variableHashColumn('lex', df_train)
-foc=inputs.variableHashColumn('tref', df_train)
-verb=inputs.variableHashColumn('verb', df_train)
-subj=inputs.variableHashColumn('nsubj', df_train)
-dobj=inputs.variableHashColumn('dobj', df_train)
-obl1=inputs.variableHashColumn('obl1', df_train)
-obl2=inputs.variableHashColumn('obl2', df_train)
-y=output.variableLabels('Labels', df_train)
-x=[seq, foc, verb, subj, dobj, obl1, obl2]
-
-########################################
-######## Testing
-########################################
-seq_=inputs.variableHashColumn('lex', df_test)
-foc_=inputs.variableHashColumn('tref', df_test)
-verb_=inputs.variableHashColumn('verb', df_test)
-subj_=inputs.variableHashColumn('nsubj', df_test)
-dobj_=inputs.variableHashColumn('dobj', df_test)
-obl1_=inputs.variableHashColumn('obl1', df_test)
-obl2_=inputs.variableHashColumn('obl2', df_test)
-
-x_=[seq_, foc_, verb_, subj_, dobj_, obl1_, obl2_]
-y_=output.variableLabels('Labels', df_test)
-lstm.on_batch(x, y, LSTM, x_, y_)
-""" 
-#y_dnn_=output.binaryLabels('main-labels', df_test)
-#results=lstm.eval_on_batch(f_, y_, LSTM6)
 
