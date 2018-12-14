@@ -15,12 +15,6 @@ from keras.callbacks import TensorBoard
 
 from keras_contrib.layers import  CRF
 
-####################################################################################
-######## To run . . .
-####################################################################################
-#nn.fit(seq, y, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=2, validation_data=(seq_, y_))
-#acc, loss =batch.batched_training(df_train, ['lex'], ['n75-MOB'], nn, test_data=df_test)
-
 
 ####################################################################################
 ######## General variables
