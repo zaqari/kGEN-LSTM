@@ -150,49 +150,6 @@ class cxn:
 
                 return pd.DataFrame(np.array(data).reshape(-1, len(list(dfk))), columns=list(dfk)[:-1]+['sent'])
 
-        """
-        def argument_structure_OLD(dfk, verbose=False, fx=None):
-                data=[]
-                err={'OS': 0, 'AS': 0, 'Uni': 0, 'verb-less': 0, 'JJ':0}
-
-                ct=0
-                for sent in set(dfk['sentID'].values.tolist()):
-
-                        if verbose==True:
-                                print('@ {} / {} -- SentID: {}'.format(ct, len(set(dfk['sentID'].values.tolist())), sent))
-                        
-                        s=dfk.loc[dfk['sentID'].isin([sent])]
-                        tref=s['tref'].values.tolist()[0]
-                        tref_row=s.loc[s['lex'].isin([tref])]
-
-                        if len(tref_row) < 1:
-                                err['verb-less']+=1
-                        
-                        elif 'subj' in tref_row['clauseEl'].values.tolist()[0]:
-                                data = s.loc[s['headFn'].isin(tref_row['headFn'].values.tolist())].values.tolist()
-                                
-                                #print('subj')
-                                
-                        elif 'dobj' in tref_row['clauseEl'].values.tolist()[0]:
-                                data = s.loc[s['headFn'].isin(tref_row['headFn'].values.tolist())].values.tolist()
-                                #print('dobj')
-                                
-                        elif 'mod' in tref_row['clauseEl'].values.tolist()[0]:
-                                choices=s.loc[s['headFn'].isin([tref])].values.tolist()
-                                for array in choices:
-                                        if array[3]=='case':
-                                                data+=[array]
-                                data+= s.loc[s['headFn'].isin(tref_row['headFn'].values.tolist())].values.tolist()
-                                #print('mod')
-                                
-                        elif 'JJ' in tref_row['lexPOS'].values.tolist()[0]:
-                                data+= s.loc[s['headFn'].isin(tref_row['headFn'].values.tolist())].values.tolist()
-                                data+=tref_row.values.tolist()
-                                err['JJ']+=1
-                        ct+=1
-
-                return pd.DataFrame(np.array(data).reshape(-1, len(list(dfk))), columns=list(dfk)[:-1]+['sent']), err
-                """
 
         def argument_structure(dfk, verbose=False, fx=None):
                 data=[]
@@ -353,4 +310,7 @@ drop=list(dfArgs.index[dfArgs['n20-labels'].isin([str(-1)])])
 dfArgs=dfArgs.drop(drop)
 dfArgs.index=range(len(dfArgs))
 
+train, test = data.train_test(dfArgs, labels='n20-labels', pct=.85)
+train.to_csv(train_out, index=False, encoding='utf-8')
+test.to_csv(test_out, index=False, encoding='utf-8')
 
